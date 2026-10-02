@@ -1,71 +1,312 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>POSTURE ANALYSIS</title>
-<meta name="description" content="Avaliação postural digital baseada em fotogrametria.">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSTURE ANALYSIS — Fotogrametria + IA</title>
+<meta name="description" content="Avaliação postural digital baseada em fotogrametria, pose estimation e Protocolo de Portland.">
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#f5f7fb;color:#172033}
-header{background:linear-gradient(135deg,#0b2f6b,#1769aa);color:white;padding:42px 22px}header .wrap{max-width:1100px;margin:auto}
-h1{font-size:42px;margin:0 0 8px}.sub{opacity:.9;font-size:18px}.wrap{max-width:1100px;margin:auto;padding:24px 18px}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#f5f7fb;color:#172033}
+header{background:linear-gradient(135deg,#071f49,#1769aa);color:white;padding:34px 22px}
+header .wrap{max-width:1180px;margin:auto}
+h1{font-size:42px;margin:0 0 8px}.sub{opacity:.9;font-size:18px}
+.wrap{max-width:1180px;margin:auto;padding:24px 18px}
 .card{background:white;border:1px solid #e3e8f0;border-radius:18px;padding:22px;margin:18px 0;box-shadow:0 8px 30px #12213d0d}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
-button{border:0;border-radius:10px;padding:12px 18px;background:#1769aa;color:white;font-weight:700;cursor:pointer}button.secondary{background:#e9eef5;color:#17304d}
-label{font-weight:700;display:block;margin:10px 0 6px}input,select{width:100%;padding:12px;border:1px solid #ccd5e2;border-radius:10px;background:white}
+button{border:0;border-radius:10px;padding:12px 18px;background:#1769aa;color:white;font-weight:700;cursor:pointer}
+button.secondary{background:#e9eef5;color:#17304d} button:disabled{opacity:.55;cursor:not-allowed}
+label{font-weight:700;display:block;margin:10px 0 6px}
+input,select{width:100%;padding:12px;border:1px solid #ccd5e2;border-radius:10px;background:white}
 .preview{width:100%;max-height:420px;object-fit:contain;border-radius:12px;background:#edf1f6;display:none}
-.item{padding:12px;border:1px solid #e2e7ef;border-radius:12px;margin:8px 0}.item small{display:block;color:#64748b;margin-top:3px}
-.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800}.ok{background:#dcfce7;color:#166534}.care{background:#fef3c7;color:#92400e}
+.canvasWrap{position:relative;background:#0d1726;border-radius:12px;overflow:hidden;margin-top:10px}
+.canvasWrap canvas{display:block;width:100%;height:auto}
+.status{padding:12px;border-radius:10px;background:#eef4fb;margin:12px 0}.status.ok{background:#e9f8ef}.status.warn{background:#fff7df}
+.item{padding:12px;border:1px solid #e2e7ef;border-radius:12px;margin:8px 0}
+.item small{display:block;color:#64748b;margin-top:3px}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800}
+.ok{background:#dcfce7;color:#166534}.care{background:#fef3c7;color:#92400e}.ai{background:#e8f0ff;color:#164b91}
 .bar{height:12px;background:#e7ebf2;border-radius:20px;overflow:hidden}.fill{height:100%;background:#1769aa}
 .hidden{display:none}.muted{color:#64748b}.score{font-size:34px;font-weight:800}
+.metric{padding:14px;border:1px solid #e2e7ef;border-radius:12px;background:#fbfcfe}
+.metric b{display:block;margin-bottom:5px}.metric span{font-size:22px;font-weight:800}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:10px;border-bottom:1px solid #e5e9ef;text-align:left;vertical-align:top}th{background:#f7f9fc}
+.notice{border-left:4px solid #1769aa;padding:12px 14px;background:#f3f7fc;border-radius:8px}
 footer{padding:30px 18px;color:#64748b;text-align:center}
-</style></head>
+@media print{button,input{display:none!important}.card{box-shadow:none;break-inside:avoid}header{color:#000;background:white;border-bottom:1px solid #ddd}.canvasWrap{background:white}}
+</style>
+</head>
 <body>
-<header><div class="wrap"><h1>POSTURE ANALYSIS</h1><div class="sub">Avaliação postural digital baseada em fotogrametria</div></div></header>
+<header><div class="wrap">
+<h1>POSTURE ANALYSIS</h1>
+<div class="sub">Avaliação postural digital baseada em fotogrametria · Pose estimation · Protocolo de Portland</div>
+</div></header>
+
 <main class="wrap">
-<section class="card"><h2>1. Identificação e imagens</h2><div class="grid">
+<section class="card">
+<h2>1. Identificação e aquisição</h2>
+<div class="grid">
 <div><label>Nome</label><input id="name" placeholder="Nome do avaliado"></div>
 <div><label>Data</label><input id="date" type="date"></div>
 </div>
 <div class="grid">
-<div><label>Vista dorsal</label><input id="back" type="file" accept="image/*"><img id="backPreview" class="preview"></div>
-<div><label>Vista lateral</label><input id="side" type="file" accept="image/*"><img id="sidePreview" class="preview"></div>
+<div>
+<label>Vista dorsal</label>
+<input id="back" type="file" accept="image/*">
+<img id="backPreview" class="preview">
+<div id="backAI" class="canvasWrap hidden"><canvas id="backCanvas"></canvas></div>
 </div>
-<p class="muted">Padronize a fotografia: corpo inteiro visível, câmera estável, enquadramento semelhante entre avaliações e postura natural.</p>
-<button onclick="analyze()">Executar análise</button>
+<div>
+<label>Vista lateral</label>
+<input id="side" type="file" accept="image/*">
+<img id="sidePreview" class="preview">
+<div id="sideAI" class="canvasWrap hidden"><canvas id="sideCanvas"></canvas></div>
+</div>
+</div>
+<div class="notice">
+<b>Padronização:</b> corpo inteiro visível, câmera estável, distância e enquadramento semelhantes entre avaliações, iluminação uniforme e postura natural. Para pesquisa, registre também a configuração de aquisição e mantenha o mesmo protocolo entre sessões.
+</div>
+<div id="modelStatus" class="status">Carregando modelo de pose...</div>
+<button id="analyzeBtn" onclick="analyze()" disabled>Carregando IA...</button>
 </section>
-<section id="result" class="card hidden"><h2>2. Resultado</h2>
-<div class="grid"><div><div class="muted">Índice de Condição Postural (ICP)</div><div class="score" id="icp">—</div><div id="class"></div></div><div><div class="muted">Interpretação</div><p id="interpret">—</p><div class="bar"><div id="fill" class="fill" style="width:0"></div></div></div></div>
-<h3>Domínios</h3><div id="domains" class="grid"></div>
-<h3>Registro Portland</h3><p class="muted">O protocolo usa categorias 5/3/1. Como o PDF não fornece cortes angulares para automatizar essas categorias, a versão web não inventa thresholds: o avaliador humano registra a classificação e a IA pode ser usada como apoio após calibração.</p>
+
+<section id="result" class="card hidden">
+<h2>2. Análise automatizada</h2>
+<div id="quality" class="status"></div>
+<p class="muted">A IA abaixo usa pose estimation para localizar pontos corporais e calcular medidas geométricas observáveis. Ela não transforma automaticamente uma medida em 5/3/1 do Portland porque o protocolo fornecido não define cortes angulares para essas categorias.</p>
+<div id="metrics" class="grid"></div>
+<h3>Evidência visual</h3>
+<p class="muted">Os pontos e segmentos são sobrepostos à fotografia para permitir auditoria visual do resultado.</p>
+</section>
+
+<section id="portlandSection" class="card hidden">
+<h2>3. Protocolo de Portland</h2>
+<div class="notice"><b>Camada determinística:</b> as pontuações 5/3/1 abaixo continuam sendo registradas pelo avaliador humano. A IA apresenta evidências geométricas quando disponíveis e marca itens que exigem julgamento visual/treinamento específico.</div>
 <div id="items"></div>
+<div class="grid">
+<div><div class="muted">Índice de Condição Postural (ICP)</div><div class="score" id="icp">—</div><div id="class"></div></div>
+<div><div class="muted">Interpretação</div><p id="interpret">—</p><div class="bar"><div id="fill" class="fill" style="width:0"></div></div></div>
+</div>
+<h3>Domínios</h3><div id="domains" class="grid"></div>
+</section>
+
+<section id="validationSection" class="card hidden">
+<h2>4. IA × avaliador humano</h2>
+<p class="muted">Esta tabela prepara a validação. A versão atual não declara concordância clínica nem “acurácia” do Portland sem um conjunto de imagens rotuladas por avaliadores independentes.</p>
+<div id="validation"></div>
+</section>
+
+<section id="reportSection" class="card hidden">
+<h2>5. Relatório</h2>
+<p>O relatório reúne identificação, qualidade, evidências geométricas, classificação Portland e comparação IA × humano.</p>
 <button class="secondary" onclick="window.print()">Imprimir / salvar PDF</button>
 </section>
-<section class="card"><h2>Sobre o método</h2><p>O sistema foi estruturado para separar aquisição, controle de qualidade, evidências geométricas, classificação pelo Protocolo de Portland e validação IA × avaliador humano. Ele não deve ser interpretado como diagnóstico clínico.</p>
+
+<section class="card">
+<h2>Sobre o método</h2>
+<p>O sistema separa aquisição, controle de qualidade, pose estimation, geometria 2D, classificação pelo Protocolo de Portland e validação IA × avaliador humano. Itens sem evidência anatômica suficiente são explicitamente deixados para revisão humana.</p>
+<p class="muted"><b>Uso científico/experimental:</b> não é diagnóstico clínico e não substitui avaliação profissional.</p>
 </section>
-</main><footer>POSTURE ANALYSIS · protótipo científico/experimental</footer>
-<script>
+</main>
+<footer>POSTURE ANALYSIS · protótipo científico/experimental</footer>
+
+<script type="module">
+import { PoseLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/+esm";
+
 const items=[
-['1.1','Cabeça/Pescoço','Dorsal'],['1.2','Ombros','Dorsal'],['1.3','Coluna','Dorsal'],['1.4','Quadril','Dorsal'],['1.5','Joelhos','Dorsal'],['1.6','Calcanhares','Dorsal'],['1.7','Pés','Dorsal'],
-['2.1','Pescoço','Lateral'],['2.2','Peitoral','Lateral'],['2.3','Ombros/Escápulas','Lateral'],['2.4','Cifose','Lateral'],['2.5','Lordose','Lateral'],['2.6','Tronco','Lateral'],['2.7','Abdome','Lateral'],['2.8','Joelhos','Lateral']];
+['1.1','Cabeça/Pescoço','Dorsal','headTilt'],['1.2','Ombros','Dorsal','shoulderTilt'],['1.3','Coluna','Dorsal','spine'],['1.4','Quadril','Dorsal','hipTilt'],['1.5','Joelhos','Dorsal','kneeAlign'],['1.6','Calcanhares','Dorsal','heel'],['1.7','Pés','Dorsal','foot'],
+['2.1','Pescoço','Lateral','neck'],['2.2','Peitoral','Lateral','chest'],['2.3','Ombros/Escápulas','Lateral','shoulderForward'],['2.4','Cifose','Lateral','kyphosis'],['2.5','Lordose','Lateral','lordosis'],['2.6','Tronco','Lateral','trunkLean'],['2.7','Abdome','Lateral','abdomen'],['2.8','Joelhos','Lateral','kneeFlexion']];
+
 const opts='<option value="5">5 — sem/normal</option><option value="3">3 — ligeiro</option><option value="1">1 — acentuado</option>';
-function preview(inp,img){inp.onchange=()=>{let f=inp.files[0];if(!f)return;img.src=URL.createObjectURL(f);img.style.display='block'}}
-preview(back,backPreview);preview(side,sidePreview);
-date.value=new Date().toISOString().slice(0,10);
-function analyze(){
- if(!back.files[0]||!side.files[0]){alert('Envie as vistas dorsal e lateral antes de analisar.');return}
- result.classList.remove('hidden');
- let box=document.getElementById('items');box.innerHTML='';
- items.forEach(x=>{let d=document.createElement('div');d.className='item';d.innerHTML='<b>'+x[0]+' · '+x[1]+'</b><small>'+x[2]+'</small><select data-id="'+x[0]+'">'+opts+'</select>';box.appendChild(d)});
- box.querySelectorAll('select').forEach(s=>s.onchange=calc);calc();
+const evidence={};
+let poseLandmarker=null, backResult=null, sideResult=null;
+
+const $=id=>document.getElementById(id);
+$("date").value=new Date().toISOString().slice(0,10);
+
+function preview(inp,img,canvasBox){
+  inp.addEventListener("change",()=>{
+    const f=inp.files?.[0]; if(!f)return;
+    img.src=URL.createObjectURL(f); img.style.display="block"; canvasBox.classList.add("hidden");
+    $("modelStatus").textContent="Imagem recebida. Clique em Executar análise.";
+    $("modelStatus").className="status";
+  });
 }
+preview($("back"),$("backPreview"),$("backAI"));
+preview($("side"),$("sidePreview"),$("sideAI"));
+
+async function loadModel(){
+  try{
+    const vision=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm");
+    poseLandmarker=await PoseLandmarker.createFromOptions(vision,{
+      baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task",delegate:"GPU"},
+      runningMode:"IMAGE",numPoses:1,minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5,minTrackingConfidence:.5
+    });
+    $("modelStatus").textContent="IA de pose carregada. O navegador fará a análise localmente.";
+    $("modelStatus").className="status ok";
+    $("analyzeBtn").disabled=false;$("analyzeBtn").textContent="Executar análise com IA";
+  }catch(e){
+    console.error(e);
+    $("modelStatus").textContent="Não foi possível carregar o modelo. Verifique a conexão e recarregue a página.";
+    $("modelStatus").className="status warn";
+  }
+}
+loadModel();
+
+function point(lm){return {x:lm.x,y:lm.y,z:lm.z,v:lm.visibility??1}}
+function angle(a,b,c){
+  const ab={x:a.x-b.x,y:a.y-b.y}, cb={x:c.x-b.x,y:c.y-b.y};
+  const dot=ab.x*cb.x+ab.y*cb.y, den=Math.hypot(ab.x,ab.y)*Math.hypot(cb.x,cb.y);
+  if(!den)return null;
+  return Math.acos(Math.max(-1,Math.min(1,dot/den)))*180/Math.PI;
+}
+function lineAngle(a,b){return Math.atan2((b.y-a.y), (b.x-a.x))*180/Math.PI}
+function tiltFromHorizontal(a,b){let x=Math.abs(lineAngle(a,b)); if(x>90)x=180-x; return x}
+function mean(a,b){return {x:(a.x+b.x)/2,y:(a.y+b.y)/2,z:(a.z+b.z)/2,v:Math.min(a.v,b.v)}}
+
+function drawPose(result,canvas){
+  const img=result._image;
+  const ctx=canvas.getContext("2d");
+  canvas.width=img.naturalWidth||img.width; canvas.height=img.naturalHeight||img.height;
+  ctx.drawImage(img,0,0,canvas.width,canvas.height);
+  const drawingUtils=new DrawingUtils(ctx);
+  if(result.landmarks?.[0]){
+    const lm=result.landmarks[0];
+    drawingUtils.drawConnectors(lm,PoseLandmarker.POSE_CONNECTIONS,{color:"#22c55e",lineWidth:3});
+    drawingUtils.drawLandmarks(lm,{color:"#60a5fa",lineWidth:1,radius:4});
+  }
+}
+
+function imageFromFile(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=URL.createObjectURL(file);
+  });
+}
+
+async function runPose(file,canvas){
+  const img=await imageFromFile(file);
+  const result=poseLandmarker.detect(img);
+  result._image=img;
+  drawPose(result,canvas);
+  return result;
+}
+
+function confidence(lm){
+  const ids=[0,7,8,11,12,23,24,25,26,27,28,31,32];
+  const vals=ids.map(i=>lm[i]?.v??0).filter(v=>v>0);
+  return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;
+}
+
+function computeDorsal(lm){
+  const nose=point(lm[0]),le=point(lm[7]),re=point(lm[8]),ls=point(lm[11]),rs=point(lm[12]),lh=point(lm[23]),rh=point(lm[24]),lk=point(lm[25]),rk=point(lm[26]),la=point(lm[27]),ra=point(lm[28]),lf=point(lm[31]),rf=point(lm[32]);
+  const shoulder=mean(ls,rs),hip=mean(lh,rh);
+  return {
+    headTilt:tiltFromHorizontal(le,re),
+    shoulderTilt:tiltFromHorizontal(ls,rs),
+    hipTilt:tiltFromHorizontal(lh,rh),
+    leftKneeAngle:angle(lh,lk,la),rightKneeAngle:angle(rh,rk,ra),
+    kneeAxisLeft:Math.abs(lineAngle(lh,la)),kneeAxisRight:Math.abs(lineAngle(rh,ra)),
+    footAngleLeft:Math.abs(lineAngle(la,lf)),footAngleRight:Math.abs(lineAngle(ra,rf)),
+    confidence:confidence(lm),
+    _points:{nose,shoulder,hip,ls,rs,lh,rh,lk,rk,la,ra,lf,rf}
+  };
+}
+
+function computeSide(lm){
+  // Use the more visible side; this is a screening geometry layer, not a spinal diagnostic model.
+  const sideScore=(i,j)=>Math.min(lm[i]?.visibility??0,lm[j]?.visibility??0);
+  const useLeft=sideScore(8,12)+sideScore(24,26)+sideScore(28,32) >= sideScore(7,11)+sideScore(23,25)+sideScore(27,31);
+  const ear=point(lm[useLeft?7:8]),shoulder=point(lm[useLeft?11:12]),hip=point(lm[useLeft?23:24]),knee=point(lm[useLeft?25:26]),ankle=point(lm[useLeft?27:28]);
+  const cva=angle({x:ear.x,y:0},{x:ear.x,y:ear.y},shoulder); // auxiliary, not used as Portland score
+  const trunkLean=Math.abs(Math.atan2(shoulder.x-hip.x,hip.y-shoulder.y)*180/Math.PI);
+  return {side:useLeft?"esquerdo":"direito",neckCVA:cva,trunkLean,kneeFlexion:180-angle(hip,knee,ankle),shoulderForward:Math.abs(shoulder.x-hip.x),confidence:confidence(lm),_points:{ear,shoulder,hip,knee,ankle}};
+}
+
+function metricCard(title,value,unit,detail){
+  return '<div class="metric"><b>'+title+'</b><span>'+value+(unit||"")+'</span><div class="muted">'+detail+'</div></div>';
+}
+
+function renderMetrics(){
+  const d=evidence.dorsal,s=evidence.side;
+  $("metrics").innerHTML=
+    metricCard("Inclinação da cabeça",d.headTilt.toFixed(1),"°","linha entre os pontos auriculares detectados")+
+    metricCard("Inclinação dos ombros",d.shoulderTilt.toFixed(1),"°","diferença angular da linha dos ombros")+
+    metricCard("Inclinação do quadril",d.hipTilt.toFixed(1),"°","diferença angular da linha das espinhas ilíacas como proxy")+
+    metricCard("Joelho esquerdo",d.leftKneeAngle.toFixed(1),"°","ângulo hip–knee–ankle")+
+    metricCard("Joelho direito",d.rightKneeAngle.toFixed(1),"°","ângulo hip–knee–ankle")+
+    metricCard("Inclinação do tronco",s.trunkLean.toFixed(1),"°","deslocamento do eixo ombro–quadril em relação à vertical")+
+    metricCard("Flexão do joelho",s.kneeFlexion.toFixed(1),"°","estimativa no plano lateral; lado: "+s.side)+
+    metricCard("Confiança dorsal",Math.round(d.confidence*100),"%","visibilidade média dos pontos-chave")+
+    metricCard("Confiança lateral",Math.round(s.confidence*100),"%","visibilidade média dos pontos-chave");
+}
+
+function renderItems(){
+  const box=$("items");box.innerHTML="";
+  items.forEach(x=>{
+    const ev=evidence[x[3]];
+    let evidenceText="Revisão visual necessária.";
+    if(x[3]==="headTilt") evidenceText=ev!=null?"IA: inclinação da cabeça = "+ev.toFixed(1)+"°.":"Sem evidência.";
+    if(x[3]==="shoulderTilt") evidenceText="IA: inclinação dos ombros = "+ev.toFixed(1)+"°.";
+    if(x[3]==="hipTilt") evidenceText="IA: inclinação do quadril = "+ev.toFixed(1)+"°.";
+    if(x[3]==="kneeAlign") evidenceText="IA: ângulos dos joelhos E/D = "+evidence.dorsal.leftKneeAngle.toFixed(1)+"° / "+evidence.dorsal.rightKneeAngle.toFixed(1)+"°.";
+    if(x[3]==="neck") evidenceText="IA: métrica auxiliar de alinhamento cabeça–ombro; não converter automaticamente em 5/3/1.";
+    if(x[3]==="shoulderForward") evidenceText="IA: deslocamento relativo ombro–quadril no perfil; usar apenas como evidência auxiliar.";
+    if(x[3]==="trunkLean") evidenceText="IA: inclinação do tronco = "+evidence.side.trunkLean.toFixed(1)+"°.";
+    if(x[3]==="kneeFlexion") evidenceText="IA: flexão do joelho = "+evidence.side.kneeFlexion.toFixed(1)+"°.";
+    const d=document.createElement("div");d.className="item";
+    d.innerHTML='<b>'+x[0]+' · '+x[1]+'</b><small>'+x[2]+' · <span class="badge ai">'+evidenceText+'</span></small><label>Pontuação do avaliador humano</label><select data-id="'+x[0]+'">'+opts+'</select>';
+    box.appendChild(d);
+  });
+  box.querySelectorAll("select").forEach(s=>s.onchange=calc);
+  calc();
+}
+
 function calc(){
- let vals=[...document.querySelectorAll('#items select')].map(x=>+x.value);
- let sum=vals.reduce((a,b)=>a+b,0), icp=sum/75*100; // Portland total maximum = 75
- document.getElementById('icp').textContent=icp.toFixed(1)+'%';
- document.getElementById('fill').style.width=Math.max(0,Math.min(100,icp))+'%';
- document.getElementById('class').innerHTML=icp>=85?'<span class="badge ok">OK</span>':'<span class="badge care">Cuidados</span>';
- document.getElementById('interpret').textContent=icp>=85?'Índice dentro da faixa definida pelo protocolo.':'Índice abaixo da faixa definida pelo protocolo.';
- const groups=[['Cabeça e Pescoço',[0,1,7,8,9],25],['Coluna Dorsal e Lombar',[2,10,11],15],['Abdome e Quadril',[3,12,13],15],['Membros Inferiores',[4,5,6,14],20]];
- domains.innerHTML=groups.map(g=>{let v=g[1].reduce((s,i)=>s+vals[i],0)/g[2]*100;return '<div class="card"><b>'+g[0]+'</b><div class="score">'+v.toFixed(1)+'%</div><div class="bar"><div class="fill" style="width:'+v+'%"></div></div></div>'}).join('');
+  const vals=[...document.querySelectorAll("#items select")].map(x=>+x.value);
+  if(vals.length!==15)return;
+  const sum=vals.reduce((a,b)=>a+b,0),icp=sum/75*100;
+  $("icp").textContent=icp.toFixed(1)+"%";
+  $("fill").style.width=Math.max(0,Math.min(100,icp))+"%";
+  $("class").innerHTML=icp>=85?'<span class="badge ok">OK</span>':'<span class="badge care">Cuidados</span>';
+  $("interpret").textContent=icp>=85?"Índice dentro da faixa definida pelo protocolo.":"Índice abaixo da faixa definida pelo protocolo.";
+  const groups=[["Cabeça e Pescoço",[0,1,7,8,9],25],["Coluna Dorsal e Lombar",[2,10,11],15],["Abdome e Quadril",[3,12,13],15],["Membros Inferiores",[4,5,6,14],20]];
+  $("domains").innerHTML=groups.map(g=>{let v=g[1].reduce((s,i)=>s+vals[i],0)/g[2]*100;return '<div class="card"><b>'+g[0]+'</b><div class="score">'+v.toFixed(1)+'%</div><div class="bar"><div class="fill" style="width:'+v+'%"></div></div></div>'}).join("");
+  renderValidation();
 }
-</script></body></html>
+
+function renderValidation(){
+  const rows=items.map((x,i)=>{
+    const sel=document.querySelectorAll("#items select")[i];
+    const human=sel?.value||"—";
+    return "<tr><td>"+x[0]+" · "+x[1]+"</td><td>"+(x[3] in evidence && ["headTilt","shoulderTilt","hipTilt","kneeAlign","neck","shoulderForward","trunkLean","kneeFlexion"].includes(x[3])?"Evidência geométrica":"—")+"</td><td>"+human+"</td><td>—</td></tr>";
+  }).join("");
+  $("validation").innerHTML='<table><thead><tr><th>Item</th><th>IA</th><th>Humano</th><th>Concordância</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
+async function analyze(){
+  if(!$("back").files[0]||!$("side").files[0]){alert("Envie as vistas dorsal e lateral antes de analisar.");return}
+  if(!poseLandmarker){alert("A IA ainda está carregando. Aguarde alguns segundos e tente novamente.");return}
+  $("analyzeBtn").disabled=true;$("analyzeBtn").textContent="Analisando...";
+  try{
+    $("backPreview").style.display="none";$("sidePreview").style.display="none";
+    $("backAI").classList.remove("hidden");$("sideAI").classList.remove("hidden");
+    backResult=await runPose($("back").files[0],$("backCanvas"));
+    sideResult=await runPose($("side").files[0],$("sideCanvas"));
+    if(!backResult.landmarks?.[0]||!sideResult.landmarks?.[0]) throw new Error("Não foi detectada uma pose corporal completa.");
+    evidence.dorsal=computeDorsal(backResult.landmarks[0]);
+    evidence.side=computeSide(sideResult.landmarks[0]);
+    evidence.headTilt=evidence.dorsal.headTilt;evidence.shoulderTilt=evidence.dorsal.shoulderTilt;evidence.hipTilt=evidence.dorsal.hipTilt;
+    evidence.neck=evidence.side.neckCVA;evidence.shoulderForward=evidence.side.shoulderForward;evidence.trunkLean=evidence.side.trunkLean;evidence.kneeFlexion=evidence.side.kneeFlexion;evidence.kneeAlign=true;
+    $("result").classList.remove("hidden");$("portlandSection").classList.remove("hidden");$("validationSection").classList.remove("hidden");$("reportSection").classList.remove("hidden");
+    const q=Math.min(evidence.dorsal.confidence,evidence.side.confidence);
+    $("quality").textContent=(q>=.75?"Boa detecção dos pontos-chave. ":"Detecção com confiança reduzida; revise a imagem. ")+"Confiança mínima entre as vistas: "+Math.round(q*100)+"%.";
+    $("quality").className="status "+(q>=.75?"ok":"warn");
+    renderMetrics();renderItems();
+    window.scrollTo({top:$("result").offsetTop-20,behavior:"smooth"});
+  }catch(e){
+    console.error(e);alert("A análise não pôde ser concluída: "+e.message);
+  }finally{$("analyzeBtn").disabled=false;$("analyzeBtn").textContent="Executar análise com IA";}
+}
+</script>
+</body>
+</html>
