@@ -67,7 +67,7 @@ footer{padding:30px 18px;color:#64748b;text-align:center}
 <b>Padronização:</b> corpo inteiro visível, câmera estável, distância e enquadramento semelhantes entre avaliações, iluminação uniforme e postura natural. Para pesquisa, registre também a configuração de aquisição e mantenha o mesmo protocolo entre sessões.
 </div>
 <div id="modelStatus" class="status">Carregando modelo de pose...</div>
-<button id="analyzeBtn" onclick="analyze()" disabled>Carregando IA...</button>
+<button id="analyzeBtn" disabled>Carregando IA...</button>
 </section>
 
 <section id="result" class="card hidden">
@@ -326,6 +326,7 @@ async function analyze(){
     alert("A análise não pôde ser concluída.\n\n"+(e?.message||"Erro desconhecido"));
   }finally{$("analyzeBtn").disabled=false;$("analyzeBtn").textContent="Executar análise com IA";}
 }
+document.getElementById("analyzeBtn").addEventListener("click", analyze);
 </script>
 </body>
 </html>
