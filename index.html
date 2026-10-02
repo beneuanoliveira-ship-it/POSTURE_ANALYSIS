@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSTURE ANALYSIS</title>
+<meta name="description" content="Avaliação postural digital baseada em fotogrametria.">
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#f5f7fb;color:#172033}
+header{background:linear-gradient(135deg,#0b2f6b,#1769aa);color:white;padding:42px 22px}header .wrap{max-width:1100px;margin:auto}
+h1{font-size:42px;margin:0 0 8px}.sub{opacity:.9;font-size:18px}.wrap{max-width:1100px;margin:auto;padding:24px 18px}
+.card{background:white;border:1px solid #e3e8f0;border-radius:18px;padding:22px;margin:18px 0;box-shadow:0 8px 30px #12213d0d}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+button{border:0;border-radius:10px;padding:12px 18px;background:#1769aa;color:white;font-weight:700;cursor:pointer}button.secondary{background:#e9eef5;color:#17304d}
+label{font-weight:700;display:block;margin:10px 0 6px}input,select{width:100%;padding:12px;border:1px solid #ccd5e2;border-radius:10px;background:white}
+.preview{width:100%;max-height:420px;object-fit:contain;border-radius:12px;background:#edf1f6;display:none}
+.item{padding:12px;border:1px solid #e2e7ef;border-radius:12px;margin:8px 0}.item small{display:block;color:#64748b;margin-top:3px}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800}.ok{background:#dcfce7;color:#166534}.care{background:#fef3c7;color:#92400e}
+.bar{height:12px;background:#e7ebf2;border-radius:20px;overflow:hidden}.fill{height:100%;background:#1769aa}
+.hidden{display:none}.muted{color:#64748b}.score{font-size:34px;font-weight:800}
+footer{padding:30px 18px;color:#64748b;text-align:center}
+</style></head>
+<body>
+<header><div class="wrap"><h1>POSTURE ANALYSIS</h1><div class="sub">Avaliação postural digital baseada em fotogrametria</div></div></header>
+<main class="wrap">
+<section class="card"><h2>1. Identificação e imagens</h2><div class="grid">
+<div><label>Nome</label><input id="name" placeholder="Nome do avaliado"></div>
+<div><label>Data</label><input id="date" type="date"></div>
+</div>
+<div class="grid">
+<div><label>Vista dorsal</label><input id="back" type="file" accept="image/*"><img id="backPreview" class="preview"></div>
+<div><label>Vista lateral</label><input id="side" type="file" accept="image/*"><img id="sidePreview" class="preview"></div>
+</div>
+<p class="muted">Padronize a fotografia: corpo inteiro visível, câmera estável, enquadramento semelhante entre avaliações e postura natural.</p>
+<button onclick="analyze()">Executar análise</button>
+</section>
+<section id="result" class="card hidden"><h2>2. Resultado</h2>
+<div class="grid"><div><div class="muted">Índice de Condição Postural (ICP)</div><div class="score" id="icp">—</div><div id="class"></div></div><div><div class="muted">Interpretação</div><p id="interpret">—</p><div class="bar"><div id="fill" class="fill" style="width:0"></div></div></div></div>
+<h3>Domínios</h3><div id="domains" class="grid"></div>
+<h3>Registro Portland</h3><p class="muted">O protocolo usa categorias 5/3/1. Como o PDF não fornece cortes angulares para automatizar essas categorias, a versão web não inventa thresholds: o avaliador humano registra a classificação e a IA pode ser usada como apoio após calibração.</p>
+<div id="items"></div>
+<button class="secondary" onclick="window.print()">Imprimir / salvar PDF</button>
+</section>
+<section class="card"><h2>Sobre o método</h2><p>O sistema foi estruturado para separar aquisição, controle de qualidade, evidências geométricas, classificação pelo Protocolo de Portland e validação IA × avaliador humano. Ele não deve ser interpretado como diagnóstico clínico.</p>
+</section>
+</main><footer>POSTURE ANALYSIS · protótipo científico/experimental</footer>
+<script>
+const items=[
+['1.1','Cabeça/Pescoço','Dorsal'],['1.2','Ombros','Dorsal'],['1.3','Coluna','Dorsal'],['1.4','Quadril','Dorsal'],['1.5','Joelhos','Dorsal'],['1.6','Calcanhares','Dorsal'],['1.7','Pés','Dorsal'],
+['2.1','Pescoço','Lateral'],['2.2','Peitoral','Lateral'],['2.3','Ombros/Escápulas','Lateral'],['2.4','Cifose','Lateral'],['2.5','Lordose','Lateral'],['2.6','Tronco','Lateral'],['2.7','Abdome','Lateral'],['2.8','Joelhos','Lateral']];
+const opts='<option value="5">5 — sem/normal</option><option value="3">3 — ligeiro</option><option value="1">1 — acentuado</option>';
+function preview(inp,img){inp.onchange=()=>{let f=inp.files[0];if(!f)return;img.src=URL.createObjectURL(f);img.style.display='block'}}
+preview(back,backPreview);preview(side,sidePreview);
+date.value=new Date().toISOString().slice(0,10);
+function analyze(){
+ if(!back.files[0]||!side.files[0]){alert('Envie as vistas dorsal e lateral antes de analisar.');return}
+ result.classList.remove('hidden');
+ let box=document.getElementById('items');box.innerHTML='';
+ items.forEach(x=>{let d=document.createElement('div');d.className='item';d.innerHTML='<b>'+x[0]+' · '+x[1]+'</b><small>'+x[2]+'</small><select data-id="'+x[0]+'">'+opts+'</select>';box.appendChild(d)});
+ box.querySelectorAll('select').forEach(s=>s.onchange=calc);calc();
+}
+function calc(){
+ let vals=[...document.querySelectorAll('#items select')].map(x=>+x.value);
+ let sum=vals.reduce((a,b)=>a+b,0), icp=sum/75*100; // Portland total maximum = 75
+ document.getElementById('icp').textContent=icp.toFixed(1)+'%';
+ document.getElementById('fill').style.width=Math.max(0,Math.min(100,icp))+'%';
+ document.getElementById('class').innerHTML=icp>=85?'<span class="badge ok">OK</span>':'<span class="badge care">Cuidados</span>';
+ document.getElementById('interpret').textContent=icp>=85?'Índice dentro da faixa definida pelo protocolo.':'Índice abaixo da faixa definida pelo protocolo.';
+ const groups=[['Cabeça e Pescoço',[0,1,7,8,9],25],['Coluna Dorsal e Lombar',[2,10,11],15],['Abdome e Quadril',[3,12,13],15],['Membros Inferiores',[4,5,6,14],20]];
+ domains.innerHTML=groups.map(g=>{let v=g[1].reduce((s,i)=>s+vals[i],0)/g[2]*100;return '<div class="card"><b>'+g[0]+'</b><div class="score">'+v.toFixed(1)+'%</div><div class="bar"><div class="fill" style="width:'+v+'%"></div></div></div>'}).join('');
+}
+</script></body></html>
